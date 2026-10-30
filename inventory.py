@@ -1,0 +1,61 @@
+class Inventory:
+    def init(self):
+        self._products = []
+
+    def is_empty(self):
+        return len(self.__products) == 0
+
+    def find_product(self, product_id):
+        """Return the Product matching product_id (case-insensitive), or None."""
+        for product in self.__products:
+            if product.product_id.lower() == product_id.lower():
+                return product
+        return None
+
+    def add_product(self, product):
+        """Add a Product object. Duplicate IDs are rejected."""
+        if self.find_product(product.product_id) is not None:
+            print("Product ID already exists.")
+            return False
+        self.__products.append(product)
+        print("Product added successfully!")
+        return True
+
+    def update_stock(self, product_id, new_stock):
+        """Find a product and ask it to update its own stock."""
+        product = self.find_product(product_id)
+        if product is None:
+            print("Product not found.")
+            return False
+        if product.update_stock(new_stock):
+            print("Stock updated successfully!")
+            return True
+        return False
+
+    def search_product(self, product_id):
+        """Display one product's details, or a not-found message."""
+        product = self.find_product(product_id)
+        if product is None:
+            print("Product not found.")
+            return None
+        print("Product Found")
+        print("-" * 48)
+        product.display_information()
+        print("-" * 48)
+        return product
+
+    def display_all(self):
+        print("Current Inventory")
+        print("-" * 48)
+        if self.is_empty():
+            print("Inventory is empty.")
+        for product in self.__products:
+            product.display_information()
+        print("-" * 48)
+
+    def to_list(self):
+        """Return the products as a list of dictionaries (for saving)."""
+        return [product.to_dict() for product in self.__products]
+
+
+    
