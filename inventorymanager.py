@@ -1,36 +1,49 @@
 import json
+import os
 from product import Product
 from inventory import Inventory
 
-# Global constant
-INVENTORY_FILE = "data/inventory.json"
+# Global constant: always relative to this script, not to the folder it is run from
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+INVENTORY_FILE = os.path.join(BASE_DIR, "data", "inventory.json")
 
 
 # ---------------------------------------------------------------
 # File handling
 # ---------------------------------------------------------------
 def load_inventory():
-    """Load products from INVENTORY_FILE into an Inventory object."""
-    inventory = Inventory()
+    """Return an Inventory loaded from INVENTORY_FILE, or None if that is not possible."""
     try:
         with open(INVENTORY_FILE, "r") as file:
-            data = json.load(file)
+            data = json.load(file)          # a list of dictionaries
+
+        inventory = Inventory()
         for item in data:
-            inventory.add_product(Product.from_dict(item))
+            product = Product(item["id"], item["name"], item["price"], item["stock"])
+            inventory.add_product(product)
+
         print(INVENTORY_FILE + " found.")
         print("Inventory loaded successfully.")
+        return inventory
     except FileNotFoundError:
-        print(INVENTORY_FILE + " not found. Starting with an empty inventory.")
-    except (json.JSONDecodeError, OSError, KeyError, TypeError):
-        print("Could not read " + INVENTORY_FILE + ". Starting with an empty inventory.")
-        inventory = Inventory()
-    return inventory
+        print(INVENTORY_FILE + " not found.")
+        return None
+    except (json.JSONDecodeError, OSError, KeyError, TypeError, ValueError) as error:
+        print("Could not read " + INVENTORY_FILE + " (" + str(error) + ").")
+        backup = INVENTORY_FILE + ".bak"
+        try:
+            os.replace(INVENTORY_FILE, backup)
+            print("The unreadable file was kept as " + backup + ".")
+        except OSError:
+            pass
+        return None
 
 
 def save_inventory(inventory):
     """Write the inventory to INVENTORY_FILE as JSON."""
     print("Saving inventory...")
     try:
+        os.makedirs(os.path.dirname(INVENTORY_FILE), exist_ok=True)
         with open(INVENTORY_FILE, "w") as file:
             json.dump(inventory.to_list(), file, indent=4)
         print("Inventory saved successfully to " + INVENTORY_FILE + ".")
@@ -70,7 +83,7 @@ def get_int(prompt):
 
 
 # ---------------------------------------------------------------
-# Menu handlers
+# Menu handlers (input and messages only; the work is done by Inventory)
 # ---------------------------------------------------------------
 def handle_add(inventory):
     print("Add New Product")
@@ -84,7 +97,10 @@ def handle_add(inventory):
         return
     price = get_float("Price: ")
     stock = get_int("Stock Quantity: ")
-    inventory.add_product(Product(product_id, name, price, stock))
+    if inventory.add_product(Product(product_id, name, price, stock)):
+        print("Product added successfully!")
+    else:
+        print("Product ID already exists.")
 
 
 def handle_update(inventory):
@@ -118,11 +134,13 @@ def print_menu():
     print("----------------------------")
 
 
-def load_starter_products(inventory):
-    """Seed three starter products when there is no saved inventory."""
+def create_starter_inventory():
+    """First run only: build an Inventory with three starter products."""
+    inventory = Inventory()
     inventory.add_product(Product("P001", "Laptop", 1200.00, 15))
     inventory.add_product(Product("P002", "Mouse", 25.50, 40))
     inventory.add_product(Product("P003", "Keyboard", 45.00, 25))
+    return inventory
 
 
 # ---------------------------------------------------------------
@@ -134,9 +152,12 @@ def main():
     print("=" * 40)
 
     inventory = load_inventory()
-    if inventory.is_empty():
-        load_starter_products(inventory)
+    if inventory is None:
+        # No usable data file: start with the starter products and create the file now,
+        # so every later run loads from it.
+        inventory = create_starter_inventory()
         print("Loaded 3 starter products.")
+        save_inventory(inventory)
 
     print_menu()
 

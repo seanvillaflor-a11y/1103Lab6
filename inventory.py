@@ -1,6 +1,11 @@
+from product import Product
+
+
 class Inventory:
-    def init(self):
-        self._products = []
+    """Manages a collection of Product objects."""
+
+    def __init__(self):
+        self.__products = []
 
     def is_empty(self):
         return len(self.__products) == 0
@@ -13,12 +18,10 @@ class Inventory:
         return None
 
     def add_product(self, product):
-        """Add a Product object. Duplicate IDs are rejected."""
+        """Add a Product object. Returns False if the ID already exists."""
         if self.find_product(product.product_id) is not None:
-            print("Product ID already exists.")
             return False
         self.__products.append(product)
-        print("Product added successfully!")
         return True
 
     def update_stock(self, product_id, new_stock):
@@ -57,5 +60,9 @@ class Inventory:
         """Return the products as a list of dictionaries (for saving)."""
         return [product.to_dict() for product in self.__products]
 
-
-    
+    # inventory.py
+def load_from_list(self, data):
+    if not isinstance(data, list):
+        raise ValueError("inventory data must be a list")
+    for item in data:
+        self.add_product(Product.from_dict(item))
