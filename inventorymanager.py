@@ -5,32 +5,34 @@ from inventory import Inventory
 # Global constant
 INVENTORY_FILE = "data/inventory.json"
 
-    
+
 # ---------------------------------------------------------------
-# Data persistence
+# File handling
 # ---------------------------------------------------------------
 def load_inventory():
-    """Load inventory from INVENTORY_FILE if it exists, else return an empty list."""
+    """Load products from INVENTORY_FILE into an Inventory object."""
+    inventory = Inventory()
     try:
         with open(INVENTORY_FILE, "r") as file:
-            inventory = json.load(file)
+            data = json.load(file)
+        for item in data:
+            inventory.add_product(Product.from_dict(item))
         print(INVENTORY_FILE + " found.")
         print("Inventory loaded successfully.")
-        return inventory
     except FileNotFoundError:
         print(INVENTORY_FILE + " not found. Starting with an empty inventory.")
-        return []
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError, KeyError, TypeError):
         print("Could not read " + INVENTORY_FILE + ". Starting with an empty inventory.")
-        return []
+        inventory = Inventory()
+    return inventory
 
 
 def save_inventory(inventory):
-    """Write the inventory list to INVENTORY_FILE as JSON."""
+    """Write the inventory to INVENTORY_FILE as JSON."""
     print("Saving inventory...")
     try:
         with open(INVENTORY_FILE, "w") as file:
-            json.dump(inventory, file, indent=4)
+            json.dump(inventory.to_list(), file, indent=4)
         print("Inventory saved successfully to " + INVENTORY_FILE + ".")
         return True
     except OSError as error:
@@ -68,73 +70,6 @@ def get_int(prompt):
 
 
 # ---------------------------------------------------------------
-# Data manipulation (CRUD)
-# ---------------------------------------------------------------
-def find_product(inventory, product_id):
-    """Return the product dictionary matching product_id, or None."""
-    for product in inventory:
-        if product["id"].lower() == product_id.lower():
-            return product
-    return None
-
-
-def add_product(inventory, product_id, name, price, stock):
-    """Add a new product dictionary to the inventory list."""
-    if find_product(inventory, product_id) is not None:
-        print("Product ID already exists.")
-        return False
-    inventory.append({
-        "id": product_id,
-        "name": name,
-        "price": price,
-        "stock": stock,
-    })
-    print("Product added successfully!")
-    return True
-
-
-def update_stock(inventory, product_id, new_stock):
-    """Update the stock of an existing product."""
-    product = find_product(inventory, product_id)
-    if product is None:
-        print("Product not found.")
-        return False
-    product["stock"] = new_stock
-    print("Stock updated successfully!")
-    return True
-
-
-def search_product(inventory, product_id):
-    """Display one product's details, or a not-found message."""
-    product = find_product(inventory, product_id)
-    if product is None:
-        print("Product not found.")
-        return None
-    print("Product Found")
-    print("-" * 48)
-    print("ID: " + product["id"])
-    print("Name: " + product["name"])
-    print("Price: $" + format(product["price"], ".2f"))
-    print("Stock: " + str(product["stock"]))
-    print("-" * 48)
-    return product
-
-
-def display_all(inventory):
-    """Display every product in the inventory."""
-    print("Current Inventory")
-    print("-" * 48)
-    if not inventory:
-        print("Inventory is empty.")
-    for product in inventory:
-        print("ID: " + product["id"]
-              + " | Name: " + product["name"]
-              + " | Price: $" + format(product["price"], ".2f")
-              + " | Stock: " + str(product["stock"]))
-    print("-" * 48)
-
-
-# ---------------------------------------------------------------
 # Menu handlers
 # ---------------------------------------------------------------
 def handle_add(inventory):
@@ -149,27 +84,27 @@ def handle_add(inventory):
         return
     price = get_float("Price: ")
     stock = get_int("Stock Quantity: ")
-    add_product(inventory, product_id, name, price, stock)
+    inventory.add_product(Product(product_id, name, price, stock))
 
 
 def handle_update(inventory):
     print("Update Stock")
     product_id = input("Enter Product ID: ").strip()
-    product = find_product(inventory, product_id)
+    product = inventory.find_product(product_id)
     if product is None:
         print("Product not found.")
         return
     print("Product Found:")
-    print("Name: " + product["name"])
-    print("Current Stock: " + str(product["stock"]))
+    print("Name: " + product.name)
+    print("Current Stock: " + str(product.stock))
     new_stock = get_int("New Stock Quantity: ")
-    update_stock(inventory, product_id, new_stock)
+    inventory.update_stock(product_id, new_stock)
 
 
 def handle_search(inventory):
     print("Search Product")
     product_id = input("Enter Product ID: ").strip()
-    search_product(inventory, product_id)
+    inventory.search_product(product_id)
 
 
 def print_menu():
@@ -183,15 +118,11 @@ def print_menu():
     print("----------------------------")
 
 
-# def load_starter_products(inventory):
-#     """Seed three starter products when there is no saved inventory."""
-#     starter = [
-#         product1 = Product("P001", "Laptop", 1200.00, 15)
-#         product2 = Product("P002", "Mouse", 25.50, 40)
-#                 product3 = Product("P003", "Keyboard", 45.00, 25)
-#     ]
-#     for product_id, name, price, stock in starter:
-#         inventory.append({"id": product_id, "name": name, "price": price, "stock": stock})
+def load_starter_products(inventory):
+    """Seed three starter products when there is no saved inventory."""
+    inventory.add_product(Product("P001", "Laptop", 1200.00, 15))
+    inventory.add_product(Product("P002", "Mouse", 25.50, 40))
+    inventory.add_product(Product("P003", "Keyboard", 45.00, 25))
 
 
 # ---------------------------------------------------------------
@@ -203,11 +134,8 @@ def main():
     print("=" * 40)
 
     inventory = load_inventory()
-    if not inventory:
-        product1 = Product("P001", "Laptop", 1200.00, 15)
-        product2 = Product("P002", "Mouse", 25.50, 40)
-        product3 = Product("P003", "Keyboard", 45.00, 25)
-
+    if inventory.is_empty():
+        load_starter_products(inventory)
         print("Loaded 3 starter products.")
 
     print_menu()
@@ -219,7 +147,7 @@ def main():
             option = "6"
 
         if option == "1":
-            display_all(inventory)
+            inventory.display_all()
         elif option == "2":
             handle_add(inventory)
         elif option == "3":
